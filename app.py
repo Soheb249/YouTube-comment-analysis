@@ -1,161 +1,120 @@
 import streamlit as st
 import os
-from Senti import extract_video_id,analyze_sentiment,bar_chart,plot_sentiment
-from YoutubeCommentScrapper import save_video_comments_to_csv,get_channel_info,youtube,get_channel_id,get_video_stats
-
-
+from Senti import extract_video_id, analyze_sentiment, bar_chart, plot_sentiment
+from YoutubeCommentScrapper import save_video_comments_to_csv, get_channel_info, youtube, get_channel_id, get_video_stats
 
 def delete_non_matching_csv_files(directory_path, video_id):
     for file_name in os.listdir(directory_path):
-        if not file_name.endswith('.csv'):
-            continue
-        if file_name == f'{video_id}.csv':
+        if not file_name.endswith('.csv') or file_name == f'{video_id}.csv':
             continue
         os.remove(os.path.join(directory_path, file_name))
 
+# Page Configuration
+st.set_page_config(page_title='YouTube Comment Analysis', page_icon='🎥', layout='wide')
 
-st.set_page_config(page_title='YOUTUBE COMMENT ANALYSIS', page_icon = 'LOGO.png', initial_sidebar_state = 'auto')
-#st.set_page_config(page_title=None, page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
-st.sidebar.title("Sentimental Analsis")
-st.sidebar.header("Enter YouTube Link")
-youtube_link = st.sidebar.text_input("Link")
-directory_path = os.getcwd()
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# Custom Styling
+st.markdown("""
+    <style>
+        .main-title {
+            text-align: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: #ff5733;
+            margin-bottom: 20px;
+        }
+        .metric-container {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+        }
+        .video-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .sidebar-input {
+            font-size: 16px;
+            border-radius: 10px;
+        }
+        .info-box {
+            padding: 15px;
+            border-radius: 10px;
+            background: #e8f5e9;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
+# Sidebar
+st.sidebar.image("LOGO.png", use_column_width=True)
+st.sidebar.title("📊 Sentiment Analysis")
+st.sidebar.header("🔗 Enter YouTube Link")
+youtube_link = st.sidebar.text_input("Paste Link Here", placeholder="Enter a valid YouTube URL")
+
+# Hide Streamlit Footer & Menu
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
 
 if youtube_link:
     video_id = extract_video_id(youtube_link)
     channel_id = get_channel_id(video_id)
+    
     if video_id:
-        st.sidebar.write("The video ID is:", video_id)     
+        st.sidebar.success(f"✅ Video ID: {video_id}")
         csv_file = save_video_comments_to_csv(video_id)
-        delete_non_matching_csv_files(directory_path,video_id)
-        st.sidebar.write("Comments saved to CSV!")
-        st.sidebar.download_button(label="Download Comments", data=open(csv_file, 'rb').read(), file_name=os.path.basename(csv_file), mime="text/csv")
+        delete_non_matching_csv_files(os.getcwd(), video_id)
         
-        #using fn
-        channel_info = get_channel_info(youtube,channel_id)
-               
-        col1, col2 = st.columns(2)
-
-        with col1:
-           channel_logo_url = channel_info['channel_logo_url']
-           st.image(channel_logo_url, width=250)
-
-        with col2:
-           channel_title = channel_info['channel_title']
-           st.title(' ')
-           st.text("  YouTube Channel Name  ")
-           #st.markdown('** YouTube Channel Name **')
-           st.title(channel_title)
-           st.title("  ")
-           st.title(" ")
-           st.title(" ")
-           
+        st.sidebar.download_button(
+            label="📥 Download Comments",
+            data=open(csv_file, 'rb').read(),
+            file_name=os.path.basename(csv_file),
+            mime="text/csv"
+        )
         
-        #Using fn
+        channel_info = get_channel_info(youtube, channel_id)
+        stats = get_video_stats(video_id)
         
+        # Channel Section
+        with st.container():
+            st.markdown("<h1 class='main-title'>🎬 Channel Overview</h1>", unsafe_allow_html=True)
+            col1, col2 = st.columns([1, 3])
+            col1.image(channel_info['channel_logo_url'], width=150)
+            with col2:
+                st.markdown(f"<div class='info-box'><b>📌 Channel Name:</b> {channel_info['channel_title']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='info-box'><b>📅 Created On:</b> {channel_info['channel_created_date'][:10]}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='info-box'><b>📺 Total Videos:</b> {channel_info['video_count']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='info-box'><b>👥 Subscribers:</b> {channel_info['subscriber_count']}</div>", unsafe_allow_html=True)
         
+        # Video Stats Section
+        with st.container():
+            st.markdown("<h1 class='main-title'>🎥 Video Statistics</h1>", unsafe_allow_html=True)
+            col3, col4, col5 = st.columns(3)
+            col3.markdown("<div class='metric-container'><h3>👁 Total Views</h3><h2>" + stats["viewCount"] + "</h2></div>", unsafe_allow_html=True)
+            col4.markdown("<div class='metric-container'><h3>👍 Likes</h3><h2>" + stats["likeCount"] + "</h2></div>", unsafe_allow_html=True)
+            col5.markdown("<div class='metric-container'><h3>💬 Comments</h3><h2>" + stats["commentCount"] + "</h2></div>", unsafe_allow_html=True)
         
-        st.title(" ")
-        col3, col4 ,col5 = st.columns(3)
+        st.markdown("<div class='video-container'>", unsafe_allow_html=True)
+        st.video(youtube_link)
+        st.markdown("</div>", unsafe_allow_html=True)
         
-        
-        with col3:
-           video_count=channel_info['video_count']
-           st.header("  Total Videos  ")
-           #st.subheader("Total Videos")
-           st.subheader(video_count)
-
-        with col4:
-           channel_created_date= channel_info['channel_created_date']
-           created_date = channel_created_date[:10]
-           st.header("Channel Created ")
-           st.subheader(created_date)
-
-        with col5:
-            
-            st.header(" Subscriber_Count ")
-            st.subheader(channel_info["subscriber_count"])
-            
-        st.title(" ")
-
-        stats = get_video_stats(video_id)   
-        
-        st.title("Video Information :")
-        col6, col7 ,col8 = st.columns(3)
-        
-        
-        with col6:
-            st.header("  Total Views  ")
-           #st.subheader("Total Videos")
-            st.subheader(stats["viewCount"])
-
-        with col7:
-           st.header(" Like Count ")
-           st.subheader(stats["likeCount"])
-           
-
-        with col8:
-            
-            st.header(" Comment Count ")
-            st.subheader(stats["commentCount"])
-            
-        st.header(" ")   
-        
-        
-        _, container, _ = st.columns([10, 80, 10])
-        container.video(data=youtube_link)
-      
-            
-        
-            
-            
+        # Sentiment Analysis
         results = analyze_sentiment(csv_file)
-        
-        
-        col9, col10 ,col11 = st.columns(3)
-        
-        
-        with col9:
-            st.header("  Positive Comments  ")
-           #st.subheader("Total Videos")
-            st.subheader(results['num_positive'])
-
-        with col10:
-           st.header(" Negative Comments ")
-           st.subheader( results['num_negative'])
-           
-
-        with col11:
-            
-            st.header(" Neutral Comments ")
-            st.subheader(results['num_neutral'])
-        
+        with st.container():
+            st.markdown("<h1 class='main-title'>📊 Sentiment Analysis</h1>", unsafe_allow_html=True)
+            col6, col7, col8 = st.columns(3)
+            col6.markdown("<div class='metric-container'><h3>😊 Positive Comments</h3><h2>" + str(results['num_positive']) + "</h2></div>", unsafe_allow_html=True)
+            col7.markdown("<div class='metric-container'><h3>😡 Negative Comments</h3><h2>" + str(results['num_negative']) + "</h2></div>", unsafe_allow_html=True)
+            col8.markdown("<div class='metric-container'><h3>😐 Neutral Comments</h3><h2>" + str(results['num_neutral']) + "</h2></div>", unsafe_allow_html=True)
         
         bar_chart(csv_file)
-        
         plot_sentiment(csv_file)
-        
-            
-        st.subheader("Channel Description ")   
-        channel_description = channel_info['channel_description']
-        st.write(channel_description)
-        
+    
     else:
-        st.error("Invalid YouTube link")
-        
-        
-  
-    
-    
-        
-
-
-
+        st.error("❌ Invalid YouTube link. Please enter a valid URL.")
